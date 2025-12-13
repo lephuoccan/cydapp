@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'services/project_manager.dart';
-import 'services/blynk_connection.dart';
+import 'services/blynk_service_simple.dart';
 import 'services/auth_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,10 +22,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: authService),
-        ChangeNotifierProvider(create: (_) => ProjectManager()),
-        ChangeNotifierProvider(
-          create: (_) => BlynkConnection(serverUrl: 'localhost', serverPort: 8080),
-        ),
+        ChangeNotifierProvider(create: (_) => BlynkServiceSimple()),
       ],
       child: MaterialApp(
         title: 'CYDS Blynk',
@@ -78,7 +73,6 @@ class MyApp extends StatelessWidget {
           ),
           '/auth': (context) => const AuthScreen(),
           '/home': (context) => const HomeScreen(),
-          '/dashboard': (context) => const DashboardScreen(),
         },
         initialRoute: '/',
       ),

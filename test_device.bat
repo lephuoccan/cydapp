@@ -1,0 +1,3 @@
+@echo off
+echo Starting Device Test App...
+flutter run -d chrome -t lib/main_device_test.dart

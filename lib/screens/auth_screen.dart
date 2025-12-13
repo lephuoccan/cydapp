@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 
@@ -111,36 +112,98 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
+      // Save password for auto-login in Blynk connection
+      debugPrint('💾 Saving password to SharedPreferences...');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('blynk_password', _passwordController.text);
+      
+      // Verify it was saved
+      final saved = prefs.getString('blynk_password');
+      debugPrint('✅ Password saved and verified: ${saved != null ? "YES (${saved.length} chars)" : "NO"}');
+      
+      // Small delay to ensure SharedPreferences is flushed to disk
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      if (!mounted) return;
+      
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } else {
-      // Show error with certificate instruction
+      // Check error type
+      final errorCode = authService.lastErrorCode;
+      final errorMessage = authService.lastError;
       final serverIp = _serverIpController.text.trim();
       final serverPort = _serverPortController.text.trim();
+      
+      // Show appropriate error message
+      String title;
+      List<Widget> contentWidgets;
+      
+      if (errorCode == 9) {
+        // Invalid token = Wrong password
+        title = 'Sai mật khẩu';
+        contentWidgets = [
+          const Icon(Icons.lock_outline, size: 48, color: Colors.orange),
+          const SizedBox(height: 16),
+          const Text(
+            'Mật khẩu không đúng. Vui lòng kiểm tra lại.',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ];
+      } else if (errorCode == 3) {
+        // User not registered = Wrong email
+        title = 'Email không tồn tại';
+        contentWidgets = [
+          const Icon(Icons.person_off, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          const Text(
+            'Email này chưa được đăng ký. Vui lòng đăng ký trước.',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ];
+      } else if (errorCode == -1 || errorCode == -2 || errorMessage.contains('Connection')) {
+        // Connection error - show certificate instruction
+        title = 'Lỗi kết nối';
+        contentWidgets = [
+          Text(_isLogin 
+              ? 'Không thể kết nối đến Blynk server' 
+              : 'Đăng ký thất bại'),
+          const SizedBox(height: 16),
+          const Text(
+            'Đối với trình duyệt web:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text('1. Mở tab mới'),
+          Text('2. Truy cập https://$serverIp:$serverPort'),
+          const Text('3. Click "Advanced" → "Proceed to ... (unsafe)"'),
+          const Text('4. Quay lại đây và thử lại'),
+        ];
+      } else {
+        // Other errors
+        title = 'Lỗi đăng nhập';
+        contentWidgets = [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            errorMessage.isNotEmpty ? errorMessage : 'Đăng nhập thất bại',
+            style: const TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ];
+      }
       
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Login Failed'),
+          title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_isLogin 
-                  ? 'Could not connect to Blynk server' 
-                  : 'Registration failed'),
-              const SizedBox(height: 16),
-              const Text(
-                'For web browsers:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text('1. Open a new tab'),
-              Text('2. Visit https://$serverIp:$serverPort'),
-              const Text('3. Click "Advanced" → "Proceed to ... (unsafe)"'),
-              const Text('4. Return here and try again'),
-            ],
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: contentWidgets,
           ),
           actions: [
             TextButton(

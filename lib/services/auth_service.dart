@@ -6,17 +6,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/user.dart';
-import '../models/device.dart';
 
 class AuthService extends ChangeNotifier {
   User? _currentUser;
-  final List<Device> _devices = [];
   bool _isAuthenticated = false;
+  String _lastPassword = ''; // Store in memory only for auto-reconnect
+  String _lastError = ''; // Store last error message
+  int _lastErrorCode = 0; // Store last error code
 
   User? get currentUser => _currentUser;
-  List<Device> get devices => List.unmodifiable(_devices);
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoggedIn => _isAuthenticated;
+  String get lastPassword => _lastPassword; // For BlynkServiceSimple auto-connect
+  String get lastError => _lastError;
+  int get lastErrorCode => _lastErrorCode;
 
   // Simulated database - in production này sẽ call API
   final Map<String, Map<String, dynamic>> _users = {};
@@ -64,7 +67,6 @@ class AuthService extends ChangeNotifier {
     if (userJson != null) {
       _currentUser = User.fromJson(json.decode(userJson));
       _isAuthenticated = true;
-      await loadDevices();
       notifyListeners();
     }
   }
@@ -102,6 +104,10 @@ class AuthService extends ChangeNotifier {
       debugPrint('=== AuthService.login ===');
       debugPrint('Email: $email');
       
+      // Store password in memory IMMEDIATELY (before async operations)
+      _lastPassword = password;
+      debugPrint('✓ Password stored in memory (${password.length} chars)');
+      
       // Get server config
       final serverConfig = await getServerConfig();
       final serverIp = serverConfig['ip'] as String;
@@ -110,7 +116,15 @@ class AuthService extends ChangeNotifier {
       debugPrint('Connecting to Blynk server: $serverIp:$serverPort');
       
       // Always use WebSocket for web compatibility
-      return await _loginViaWebSocket(serverIp, serverPort, email, password);
+      final success = await _loginViaWebSocket(serverIp, serverPort, email, password);
+      
+      if (!success) {
+        // Clear password if login failed
+        _lastPassword = '';
+        debugPrint('✗ Login failed, password cleared from memory');
+      }
+      
+      return success;
     } catch (e) {
       debugPrint('Login error: $e');
       return false;
@@ -148,15 +162,24 @@ class AuthService extends ChangeNotifier {
                 
                 if (responseCode == 200) {
                   debugPrint('✓ Login successful!');
+                  _lastError = '';
+                  _lastErrorCode = 0;
                   completer.complete(true);
                 } else {
                   final codeNames = {
-                    4: 'ILLEGAL_COMMAND_BODY',
-                    6: 'NOT_REGISTERED',
-                    8: 'NOT_AUTHENTICATED',
-                    9: 'INVALID_TOKEN',
+                    1: 'Quota limit exceeded',
+                    2: 'Illegal command',
+                    3: 'User not registered',
+                    4: 'User already registered',
+                    5: 'User not authenticated',
+                    6: 'Operation not allowed',
+                    7: 'Device not in network',
+                    8: 'No active dashboard',
+                    9: 'Invalid token',
                   };
-                  debugPrint('✗ Login failed: ${codeNames[responseCode] ?? responseCode}');
+                  _lastErrorCode = responseCode;
+                  _lastError = codeNames[responseCode] ?? 'Unknown error ($responseCode)';
+                  debugPrint('✗ Login failed: $_lastError');
                   completer.complete(false);
                 }
               }
@@ -165,10 +188,16 @@ class AuthService extends ChangeNotifier {
         },
         onError: (error) {
           debugPrint('WebSocket error: $error');
+          _lastError = 'Connection error';
+          _lastErrorCode = -1;
           if (!completer.isCompleted) completer.complete(false);
         },
         onDone: () {
           debugPrint('WebSocket closed');
+          if (_lastError.isEmpty) {
+            _lastError = 'Connection closed';
+            _lastErrorCode = -2;
+          }
           if (!completer.isCompleted) completer.complete(false);
         },
       );
@@ -215,7 +244,7 @@ class AuthService extends ChangeNotifier {
           id: userId,
           email: email,
           name: email.split('@')[0],
-          token: _generateToken(),
+          token: DateTime.now().millisecondsSinceEpoch.toString(),
         );
         
         _isAuthenticated = true;
@@ -223,9 +252,6 @@ class AuthService extends ChangeNotifier {
         // Save to storage
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('currentUser', json.encode(_currentUser!.toJson()));
-        
-        debugPrint('Loading devices...');
-        await loadDevices();
         
         debugPrint('✓ Login complete!');
         debugPrint('=== End AuthService.login ===');
@@ -249,90 +275,11 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     _currentUser = null;
     _isAuthenticated = false;
-    _devices.clear();
+    _lastPassword = ''; // Clear password from memory
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('currentUser');
-    if (_currentUser != null) {
-      await prefs.remove('devices_${_currentUser!.id}');
-    }
 
     notifyListeners();
-  }
-
-  // Device management
-  Future<void> loadDevices() async {
-    if (_currentUser == null) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final devicesJson = prefs.getString('devices_${_currentUser!.id}');
-
-      if (devicesJson != null) {
-        final List<dynamic> decoded = json.decode(devicesJson);
-        _devices.clear();
-        _devices.addAll(
-          decoded.map((d) => Device.fromJson(d as Map<String, dynamic>))
-        );
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Load devices error: $e');
-    }
-  }
-
-  Future<void> saveDevices() async {
-    if (_currentUser == null) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final encoded = json.encode(_devices.map((d) => d.toJson()).toList());
-      await prefs.setString('devices_${_currentUser!.id}', encoded);
-    } catch (e) {
-      debugPrint('Save devices error: $e');
-    }
-  }
-
-  Future<Device> createDevice(String name, {String? boardType, String? connectionType}) async {
-    final device = Device(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      authToken: Device.generateToken(),
-      boardType: boardType ?? 'Generic Board',
-      connectionType: connectionType ?? 'WiFi',
-    );
-
-    _devices.add(device);
-    await saveDevices();
-    notifyListeners();
-
-    return device;
-  }
-
-  Future<void> updateDevice(Device device) async {
-    final index = _devices.indexWhere((d) => d.id == device.id);
-    if (index != -1) {
-      _devices[index] = device;
-      await saveDevices();
-      notifyListeners();
-    }
-  }
-
-  Future<void> deleteDevice(String deviceId) async {
-    _devices.removeWhere((d) => d.id == deviceId);
-    await saveDevices();
-    notifyListeners();
-  }
-
-  Device? getDevice(String deviceId) {
-    try {
-      return _devices.firstWhere((d) => d.id == deviceId);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  String _generateToken() {
-    return DateTime.now().millisecondsSinceEpoch.toString();
   }
 }

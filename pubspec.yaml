@@ -38,6 +38,7 @@ dependencies:
   # Blynk connectivity
   web_socket_channel: ^3.0.1
   http: ^1.2.2
+  archive: ^3.4.0
   
   # State management
   provider: ^6.1.2

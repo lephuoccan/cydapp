@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/blynk_service_simple.dart';
-import '../services/profile_parser.dart';
 import 'dashboard_view_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -41,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Fallback to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         savedPassword = prefs.getString('blynk_password');
-        debugPrint('Password from SharedPreferences: ${savedPassword == null ? "NULL" : "EXISTS (${savedPassword?.length ?? 0} chars)"}');
+        debugPrint('Password from SharedPreferences: ${savedPassword == null ? "NULL" : "EXISTS (${savedPassword.length} chars)"}');
       }
       
       if (savedPassword == null || savedPassword.isEmpty) {

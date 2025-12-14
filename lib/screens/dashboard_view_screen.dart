@@ -491,7 +491,7 @@ class _DashboardViewScreenState extends State<DashboardViewScreen> {
                   // Get real-time value from BlynkService based on widget's pin
                   String value = 'N/A';
                   if (widget.dataStream != null) {
-                    final pinType = widget.dataStream!.pinType ?? 'VIRTUAL';
+                    final pinType = widget.dataStream!.pinType;
                     final pin = widget.dataStream!.pin;
                     final realTimeValue = blynkService.getPinValue(pin, pinType: pinType);
                     
@@ -642,7 +642,7 @@ class _DashboardViewScreenState extends State<DashboardViewScreen> {
     
     // Writable widgets - add controls
     final pin = widget.dataStream!.pin;
-    final pinType = widget.dataStream!.pinType ?? 'VIRTUAL';
+    final pinType = widget.dataStream!.pinType;
     
     if (widget.type.toUpperCase() == 'BUTTON') {
       // Toggle button

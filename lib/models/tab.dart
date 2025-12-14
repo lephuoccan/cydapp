@@ -1,10 +1,12 @@
 class TabModel {
   final int id;
   final String label;
+  int? selectedDeviceId;
 
   TabModel({
     required this.id,
     required this.label,
+    this.selectedDeviceId,
   });
 
   factory TabModel.fromJson(Map<String, dynamic> json) {

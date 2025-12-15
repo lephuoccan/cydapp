@@ -44,7 +44,7 @@ class AuthService extends ChangeNotifier {
   Future<Map<String, dynamic>> getServerConfig() async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      'ip': prefs.getString('server_ip') ?? '192.168.1.9',
+      'ip': prefs.getString('server_ip') ?? 'cyds.servehttp.com',
       'port': prefs.getInt('server_port') ?? 9443,
     };
   }

@@ -16,7 +16,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-  final _serverIpController = TextEditingController(text: '192.168.1.9');
+  final _serverIpController = TextEditingController(text: 'cyds.servehttp.com');
   final _serverPortController = TextEditingController(text: '9443');
   bool _isLogin = true;
   bool _isLoading = false;
@@ -329,8 +329,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 TextField(
                                   controller: _serverIpController,
                                   decoration: InputDecoration(
-                                    labelText: 'Server IP',
-                                    hintText: '192.168.1.9 or localhost',
+                                    labelText: 'Server IP/Domain',
+                                    hintText: 'cyds.servehttp.com',
                                     prefixIcon: const Icon(Icons.computer),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),

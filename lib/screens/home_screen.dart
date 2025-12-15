@@ -53,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPrint('✌️ Auto-connecting with saved password from ${authService.lastPassword.isNotEmpty ? "AuthService (memory)" : "SharedPreferences"}...');
         
         final success = await blynkService.connect(
-          config['ip'] ?? '192.168.1.9',
+          config['ip'] ?? 'cyds.servehttp.com',
           config['port'] ?? 9443,
           authService.currentUser?.email ?? '',
           savedPassword,
@@ -249,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         
         final success = await blynkService.connect(
-          config['ip'] ?? '192.168.1.9',
+          config['ip'] ?? 'cyds.servehttp.com',
           config['port'] ?? 9443,
           authService.currentUser?.email ?? '',
           password,

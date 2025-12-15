@@ -8,8 +8,8 @@
 ///
 /// ✅ 1. LOGIN FLOW (WebSocket /dashws)
 /// -----------------------------------
-/// Server: 192.168.1.9:9443
-/// Path: wss://192.168.1.9:9443/dashws
+/// Server: cyds.servehttp.com:9443
+/// Path: wss://cyds.servehttp.com:9443/dashws
 /// 
 /// Message Format (WebSocket):
 /// [Command(1) | MessageId(2) | Body(variable)]
